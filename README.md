@@ -1,5 +1,7 @@
 # 🧠 Forge AI
 
+[![tests](https://github.com/milesgurule-png/forge-ai/actions/workflows/test.yml/badge.svg)](https://github.com/milesgurule-png/forge-ai/actions/workflows/test.yml) ![python](https://img.shields.io/badge/python-3.9%2B-blue) ![license](https://img.shields.io/badge/license-Apache--2.0-green)
+
 **A private AI assistant that runs entirely on your own computer** and can answer questions from your Obsidian notes, with citations. No cloud, no API costs.
 
 Built by [Miles Gurule](https://github.com/milesgurule-png) as part of Forge Labs.
@@ -41,3 +43,11 @@ Environment options: `FORGE_VAULT` (vault folder), `FORGE_DB` (index file), `FOR
 
 ## License
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Tests
+
+The parsing, chunking, vector math and citation checks are covered by unit tests that run without Ollama:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
