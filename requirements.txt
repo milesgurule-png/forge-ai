@@ -1,0 +1,8 @@
+# Forge AI dependencies
+#
+# chat.py (step 2) uses ONLY the Python standard library (Python 3.9+).
+# Nothing to install for it -- you just need a running Ollama server.
+#
+# Planned (uncomment when the step lands):
+# sqlite-vec>=0.1        # step 3: vector store for the vault brain (RAG)
+# mlx-lm>=0.20           # step 5: LoRA fine-tuning on Apple Silicon (Apple M-series only)
