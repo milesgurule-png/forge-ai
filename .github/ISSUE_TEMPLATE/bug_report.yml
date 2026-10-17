@@ -1,0 +1,23 @@
+name: Bug report
+description: Something broke or gave a wrong answer
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: The command you ran and what you saw (paste the error if there is one).
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: input
+    id: env
+    attributes:
+      label: Setup
+      description: OS, Python version, Ollama version, models (e.g. macOS 15, Python 3.12, Ollama 0.12, qwen3.5:9b)
+    validations:
+      required: true
