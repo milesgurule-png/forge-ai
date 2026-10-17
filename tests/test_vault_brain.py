@@ -167,6 +167,26 @@ class AskJsonTests(unittest.TestCase):
         self.assertEqual(data["timing"]["tokens"], 20)
         self.assertEqual(data["timing"]["tokens_per_s"], 10.0)
 
+class ProgressTests(unittest.TestCase):
+    def test_progress_line(self):
+        self.assertEqual(vb.progress_line(0, 4, width=8), "[--------] 0/4 (  0%)")
+        self.assertEqual(vb.progress_line(1, 4, width=8), "[##------] 1/4 ( 25%)")
+        self.assertEqual(vb.progress_line(4, 4, "done", width=8), "[########] 4/4 (100%) done")
+
+    def test_progress_line_edges(self):
+        self.assertEqual(vb.progress_line(0, 0, width=4), "[####] 0/0 (100%)")  # empty vault reads as complete
+        self.assertEqual(vb.progress_line(9, 4, width=4), "[####] 9/4 (100%)")  # never overflows the bar
+        self.assertEqual(vb.progress_line(15, 100, width=10), "[#---------]  15/100 ( 15%)")
+
+    def test_progress_is_silent_when_piped(self):
+        import io
+        out = io.StringIO()  # not a terminal, like a log file or CI
+        p = vb.Progress(3, stream=out)
+        p.update(1, "a.md")
+        p.log("  embedded a.md")
+        p.finish()
+        self.assertEqual(out.getvalue(), "  embedded a.md\n")
+
 
 if __name__ == "__main__":
     unittest.main()

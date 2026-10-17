@@ -252,6 +252,47 @@ def iter_notes():
             yield rel, full
 
 
+# ---------------------------------------------------------------- progress
+
+def progress_line(done, total, label="", width=24):
+    """One-line text progress bar, e.g. '[######------------------]  25/100 (25%) Notes/a.md'."""
+    total = max(int(total), 0)
+    frac = 1.0 if total == 0 else min(max(done / total, 0.0), 1.0)
+    filled = int(width * frac)
+    line = "[{}{}] {:>{w}}/{} ({:>3}%)".format("#" * filled, "-" * (width - filled), done, total,
+                                                int(frac * 100), w=len(str(total)))
+    return line + (" " + label if label else "")
+
+
+class Progress:
+    """Redraws a progress bar in place on a terminal; prints nothing extra when output is piped or logged."""
+
+    def __init__(self, total, stream=None):
+        self.total, self.stream = total, stream or sys.stdout
+        self.live = hasattr(self.stream, "isatty") and self.stream.isatty()
+        self.cols = 100
+        if self.live:
+            try:
+                self.cols = os.get_terminal_size(self.stream.fileno()).columns
+            except (OSError, ValueError):
+                pass
+
+    def update(self, done, label=""):
+        if self.live:
+            self.stream.write("\r\033[K" + progress_line(done, self.total, label)[:self.cols - 1])
+            self.stream.flush()
+
+    def log(self, msg):
+        """Print a normal line above the bar."""
+        self.stream.write(("\r\033[K" if self.live else "") + msg + "\n")
+        self.stream.flush()
+
+    def finish(self):
+        if self.live:
+            self.stream.write("\r\033[K")
+            self.stream.flush()
+
+
 # ---------------------------------------------------------------- database
 
 def connect():
@@ -283,7 +324,10 @@ def cmd_index(args):
 
     known = {r[0]: (r[1], r[2]) for r in db.execute("SELECT path, mtime, hash FROM notes")}
     seen, n_new, n_skip, n_chunks = set(), 0, 0, 0
-    for rel, full in iter_notes():
+    notes = list(iter_notes())
+    bar = Progress(len(notes))
+    for i, (rel, full) in enumerate(notes):
+        bar.update(i, rel)
         seen.add(rel)
         mtime = os.path.getmtime(full)
         if rel in known and known[rel][0] == mtime:
@@ -311,7 +355,9 @@ def cmd_index(args):
         db.commit()
         n_new += 1
         n_chunks += len(chunks)
-        print("  embedded {:<70} {:>3} chunks".format(rel[:70], len(chunks)))
+        bar.log("  embedded {:<70} {:>3} chunks".format(rel[:70], len(chunks)))
+    bar.update(len(notes))
+    bar.finish()
     removed = set(known) - seen
     for rel in removed:
         db.execute("DELETE FROM chunks WHERE path=?", (rel,))
