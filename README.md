@@ -11,6 +11,7 @@ Built by [Miles Gurule](https://github.com/milesgurule-png) as part of Forge Lab
 - **`vault_brain.py`**: RAG ("retrieval-augmented generation") over an Obsidian vault:
   - `index`: splits notes by heading, embeds them locally, and stores them in SQLite. Re-runs are incremental.
   - `ask "question"`: answers from your notes and cites them as `[[note names]]`. It also flags any citation that wasn't actually retrieved.
+    Add `--json` to get one JSON object (answer, citations, sources, chunks, timing) for scripts and other tools.
   - `links "Note"`: finds notes in other folders that are similar but not yet linked.
   - `suggest`: the top unlinked cross-folder note pairs across the whole vault.
   - `stats`: index size and notes per folder.
