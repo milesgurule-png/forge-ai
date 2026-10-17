@@ -129,6 +129,44 @@ class IndexSmokeTests(unittest.TestCase):
             self.assertEqual(found, ["Lab/A.md"])
 
 
+class AskJsonTests(unittest.TestCase):
+    def test_ask_json_output(self):
+        import argparse
+        import contextlib
+        import io
+        import json
+        chunks = [
+            {"title": "Loss Aversion", "heading": "Why", "path": "Mind/Loss Aversion.md", "score": 0.81234, "cos": 0.7, "kw": 0.5, "text": "Note: Loss Aversion > Why\nLosses weigh about twice as much as gains."},
+            {"title": "Loss Aversion", "heading": "Uses", "path": "Mind/Loss Aversion.md", "score": 0.6, "cos": 0.6, "kw": 0.0, "text": "Note: Loss Aversion > Uses\nPricing and framing."},
+            {"title": "Kelly Criterion", "heading": "", "path": "Quant/Kelly Criterion.md", "score": 0.5, "cos": 0.5, "kw": 0.0, "text": "Note: Kelly Criterion\nBet sizing."},
+        ]
+        fakes = {
+            "connect": lambda: None,
+            "retrieve": lambda db, q, k=8: chunks,
+            "chat": lambda messages, think=False: ("Losses hurt more [[Loss Aversion]], see [[Made Up]].",
+                                                   {"eval_count": 20, "eval_duration": 2e9}),
+        }
+        saved = {name: getattr(vb, name) for name in fakes}
+        for name, fn in fakes.items():
+            setattr(vb, name, fn)
+        out = io.StringIO()
+        try:
+            args = argparse.Namespace(question="why do losses hurt?", k=8, think=False, show_chunks=True, json=True)
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(vb.cmd_ask(args), 0)
+        finally:
+            for name, fn in saved.items():
+                setattr(vb, name, fn)
+        data = json.loads(out.getvalue())  # the whole output is one JSON object, even with --show-chunks
+        self.assertEqual(data["question"], "why do losses hurt?")
+        self.assertEqual(data["cited"], ["Loss Aversion", "Made Up"])
+        self.assertEqual(data["cited_not_retrieved"], ["Made Up"])
+        self.assertEqual([s["title"] for s in data["sources"]], ["Loss Aversion", "Kelly Criterion"])
+        self.assertEqual([s["cited"] for s in data["sources"]], [True, False])
+        self.assertEqual(len(data["chunks"]), 3)
+        self.assertEqual(data["timing"]["tokens"], 20)
+        self.assertEqual(data["timing"]["tokens_per_s"], 10.0)
+
 class ProgressTests(unittest.TestCase):
     def test_progress_line(self):
         self.assertEqual(vb.progress_line(0, 4, width=8), "[--------] 0/4 (  0%)")

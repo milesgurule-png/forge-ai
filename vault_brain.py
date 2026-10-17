@@ -439,12 +439,34 @@ def check_citations(answer, chunks):
     return cited, bad
 
 
+def ask_result(question, answer, chunks, cited, bad, timing):
+    """The `ask --json` payload: everything the text output shows, as data."""
+    sources, seen = [], set()
+    for c in chunks:
+        if c["path"] not in seen:
+            seen.add(c["path"])
+            sources.append({"title": c["title"], "path": c["path"], "score": round(c["score"], 4),
+                            "cited": c["title"] in cited})
+    return {
+        "question": question,
+        "answer": answer,
+        "model": CHAT_MODEL,
+        "cited": cited,
+        "cited_not_retrieved": bad,  # possible hallucinations: cited but never shown to the model
+        "sources": sources,
+        "chunks": [{"title": c["title"], "heading": c["heading"], "path": c["path"],
+                    "score": round(c["score"], 4), "cos": round(c["cos"], 4), "kw": round(c["kw"], 4)}
+                   for c in chunks],
+        "timing": timing,
+    }
+
+
 def cmd_ask(args):
     db = connect()
     t0 = time.time()
     chunks = retrieve(db, args.question, k=args.k)
     t_ret = time.time() - t0
-    if args.show_chunks:
+    if args.show_chunks and not args.json:
         for c in chunks:
             print("  {:.3f} (cos {:.3f}, kw {:.2f})  [[{}]] > {}".format(
                 c["score"], c["cos"], c["kw"], c["title"], c["heading"]))
@@ -457,8 +479,15 @@ def cmd_ask(args):
     t1 = time.time()
     answer, raw = chat(messages, think=args.think)
     t_gen = time.time() - t1
-    print(answer)
     cited, bad = check_citations(answer, chunks)
+    toks = raw.get("eval_count", 0)
+    dur = raw.get("eval_duration", 0) / 1e9 or 1
+    if args.json:
+        print(json.dumps(ask_result(args.question, answer, chunks, cited, bad,
+                                    {"retrieval_s": round(t_ret, 3), "generation_s": round(t_gen, 3),
+                                     "tokens": toks, "tokens_per_s": round(toks / dur, 1)}), indent=2))
+        return 0
+    print(answer)
     print("\nSources (retrieved):")
     seen = set()
     for c in chunks:
@@ -473,8 +502,6 @@ def cmd_ask(args):
               ", ".join("[[{}]]".format(b) for b in bad))
     else:
         print("\nCitation check: OK ({} cited, all from retrieved notes)".format(len(cited)))
-    toks = raw.get("eval_count", 0)
-    dur = raw.get("eval_duration", 0) / 1e9 or 1
     print("Timing: retrieval {:.2f}s, generation {:.1f}s ({} tokens, {:.1f} tok/s)".format(
         t_ret, t_gen, toks, toks / dur))
     return 0
@@ -604,6 +631,7 @@ def main(argv=None):
     s.add_argument("-k", type=int, default=8, help="chunks to retrieve (default 8)")
     s.add_argument("--think", action="store_true", help="enable Qwen thinking (slower)")
     s.add_argument("--show-chunks", action="store_true", help="print retrieval scores first")
+    s.add_argument("--json", action="store_true", help="print one JSON object (answer, citations, sources, chunks, timing) for scripts")
     s = sub.add_parser("links", help="suggest unlinked, similar notes in other folders")
     s.add_argument("note")
     s.add_argument("-n", type=int, default=8)
